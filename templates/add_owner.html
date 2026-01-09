@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Add Owner | NexgenOps</title>
+  <style>
+    body{
+      background:#020617;
+      color:#e5e7eb;
+      font-family:Inter,Arial;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      height:100vh;
+    }
+    .card{
+      background:#020b2e;
+      padding:30px;
+      border-radius:16px;
+      width:320px;
+    }
+    input,button{
+      width:100%;
+      padding:12px;
+      margin-top:12px;
+      border-radius:8px;
+      border:none;
+    }
+    button{
+      background:#38bdf8;
+      font-weight:600;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>Add Owner</h2>
+  <form method="post">
+    <input name="username" placeholder="Owner Username" required>
+    <input name="password" type="password" placeholder="Password" required>
+    <button type="submit">Create Owner</button>
+  </form>
+</div>
+
+</body>
+</html>
