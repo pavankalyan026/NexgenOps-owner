@@ -1,6 +1,3 @@
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from flask import Flask, render_template, request, redirect, session
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
@@ -17,151 +14,92 @@ def db():
 
 
 # =========================================================
-# INIT CORE TABLES
+# INIT DATABASE
 # =========================================================
 def init_db():
     with db() as d:
         cur = d.cursor()
 
-        # Owner table
+        # ---------- OWNER ----------
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS owner (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE,
-                password TEXT
-            )
+        CREATE TABLE IF NOT EXISTS owner (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            password TEXT
+        )
         """)
 
-        # Insert owner with hashed password
-        hashed = generate_password_hash("owner123")
+        cur.execute("SELECT COUNT(*) FROM owner")
+        if cur.fetchone()[0] == 0:
+            cur.execute(
+                "INSERT INTO owner (username, password) VALUES (?, ?)",
+                ("owner", generate_password_hash("owner123"))
+            )
+
+        # ---------- COMPANIES ----------
         cur.execute("""
-            INSERT OR IGNORE INTO owner (id, username, password)
-            VALUES (1, 'owner', ?)
-        """, (hashed,))
+        CREATE TABLE IF NOT EXISTS companies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_name TEXT,
+            email TEXT,
+            status TEXT,
+            created_at TEXT,
+            industry TEXT,
+            company_size TEXT,
+            admin_name TEXT,
+            admin_mobile TEXT,
+            country TEXT,
+            state TEXT,
+            city TEXT,
+            timezone TEXT,
+            requested_plan TEXT,
+            expected_users INTEGER,
+            expected_meters INTEGER
+        )
+        """)
 
-        # Companies table (base)
+        # ---------- PLANS ----------
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS companies (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                company_name TEXT,
-                email TEXT,
-                status TEXT,
-                created_at TEXT
-            )
+        CREATE TABLE IF NOT EXISTS plans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            price INTEGER,
+            meter_limit INTEGER,
+            user_limit INTEGER
+        )
+        """)
+
+        cur.execute("""
+        INSERT OR IGNORE INTO plans (id, name, price, meter_limit, user_limit)
+        VALUES
+            (1, 'Free', 0, 3, 2),
+            (2, 'Professional', 7999, 50, 25),
+            (3, 'Enterprise', 24999, -1, -1)
+        """)
+
+        # ---------- SUBSCRIPTIONS ----------
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS subscriptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_id INTEGER,
+            plan_id INTEGER,
+            status TEXT,
+            start_date TEXT
+        )
         """)
 
         d.commit()
 
 
 # =========================================================
-# UPGRADE COMPANIES TABLE (SAFE MIGRATION)
-# =========================================================
-def upgrade_companies_table():
-    with db() as d:
-        cur = d.cursor()
-        cur.execute("PRAGMA table_info(companies)")
-        cols = [c[1] for c in cur.fetchall()]
-
-        def add(col, typ):
-            if col not in cols:
-                cur.execute(f"ALTER TABLE companies ADD COLUMN {col} {typ}")
-
-        add("industry", "TEXT")
-        add("company_size", "TEXT")
-        add("admin_name", "TEXT")
-        add("admin_mobile", "TEXT")
-        add("country", "TEXT")
-        add("state", "TEXT")
-        add("city", "TEXT")
-        add("timezone", "TEXT")
-        add("requested_plan", "TEXT")
-        add("expected_users", "INTEGER")
-        add("expected_meters", "INTEGER")
-
-        d.commit()
-
-
-# =========================================================
-# INIT PLANS
-# =========================================================
-def init_plans():
-    with db() as d:
-        d.execute("""
-            CREATE TABLE IF NOT EXISTS plans (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT,
-                price INTEGER,
-                meter_limit INTEGER,
-                user_limit INTEGER
-            )
-        """)
-        d.execute("""
-            INSERT OR IGNORE INTO plans (id, name, price, meter_limit, user_limit)
-            VALUES
-                (1, 'Free', 0, 3, 2),
-                (2, 'Professional', 7999, 50, 25),
-                (3, 'Enterprise', 24999, -1, -1)
-        """)
-        d.commit()
-
-
-# =========================================================
-# INIT SUBSCRIPTIONS
-# =========================================================
-def init_subscriptions():
-    with db() as d:
-        d.execute("""
-            CREATE TABLE IF NOT EXISTS subscriptions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                company_id INTEGER,
-                plan_id INTEGER,
-                status TEXT,
-                start_date TEXT
-            )
-        """)
-        d.commit()
-
-
-# =========================================================
-# INITIALIZE DATABASE (ORDER MATTERS)
+# INIT ON START
 # =========================================================
 init_db()
-upgrade_companies_table()
-init_plans()
-init_subscriptions()
 
 
 # =========================================================
 # LOGIN
 # =========================================================
-def send_owner_invite(to_email, username, password):
-    msg = MIMEMultipart()
-    msg["From"] = SMTP_EMAIL
-    msg["To"] = to_email
-    msg["Subject"] = "You’re invited as Owner – NexgenOps"
-
-    body = f"""
-Hello,
-
-You have been added as an Owner on NexgenOps.
-
-Login details:
-URL: {OWNER_LOGIN_URL}
-Username: {username}
-Temporary Password: {password}
-
-For security, please change your password after login.
-
-Regards,
-NexgenOps Team
-"""
-    msg.attach(MIMEText(body, "plain"))
-
-    server = smtplib.SMTP("smtp.gmail.com", 587)
-    server.starttls()
-    server.login(SMTP_EMAIL, SMTP_PASSWORD)
-    server.send_message(msg)
-    server.quit()
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -183,7 +121,7 @@ def login():
 
 
 # =========================================================
-# OWNER DASHBOARD
+# DASHBOARD
 # =========================================================
 @app.route("/dashboard")
 def dashboard():
@@ -230,12 +168,6 @@ def dashboard():
         cur.execute("SELECT COUNT(*) FROM subscriptions WHERE status='ACTIVE'")
         active_subs = cur.fetchone()[0]
 
-        cur.execute("SELECT COUNT(*) FROM subscriptions WHERE status='TRIAL'")
-        trials = cur.fetchone()[0]
-
-        cur.execute("SELECT COUNT(*) FROM subscriptions WHERE status='CANCELLED'")
-        churned = cur.fetchone()[0]
-
     hour = datetime.now().hour
     greeting = "Good Morning" if hour < 12 else "Good Afternoon" if hour < 17 else "Good Evening"
 
@@ -251,10 +183,14 @@ def dashboard():
         plans=plans,
         mrr=mrr,
         active_subs=active_subs,
-        trials=trials,
-        churned=churned
+        trials=0,
+        churned=0
     )
 
+
+# =========================================================
+# ADD OWNER
+# =========================================================
 @app.route("/owners")
 def owners():
     if not session.get("owner"):
@@ -266,29 +202,27 @@ def owners():
         owners = cur.fetchall()
 
     return render_template("owners.html", owners=owners)
-    
-@app.route("/owners/add", methods=["POST"])
+
+@app.route("/owner/add", methods=["GET", "POST"])
 def add_owner():
     if not session.get("owner"):
         return redirect("/")
 
-    username = request.form["username"]
-    password = request.form["password"]
+    if request.method == "POST":
+        username = request.form["username"]
+        password = generate_password_hash(request.form["password"])
 
-    hashed = generate_password_hash(password)
+        with db() as d:
+            d.execute(
+                "INSERT INTO owner (username, password) VALUES (?, ?)",
+                (username, password)
+            )
+            d.commit()
 
-    with db() as d:
-        cur = d.cursor()
-        cur.execute("""
-            INSERT INTO owner (username, password)
-            VALUES (?, ?)
-        """, (username, hashed))
-        d.commit()
+        return redirect("/dashboard")
 
-    # 📧 Send email invite
-    send_owner_invite(username, username, password)
+    return render_template("add_owner.html")
 
-    return redirect("/owners") 
 
 # =========================================================
 # COMPANY REGISTRATION
@@ -356,9 +290,11 @@ def approve(company_id):
 def suspend(company_id):
     if not session.get("owner"):
         return redirect("/")
+
     with db() as d:
         d.execute("UPDATE companies SET status='SUSPENDED' WHERE id=?", (company_id,))
         d.commit()
+
     return redirect("/dashboard")
 
 
@@ -366,9 +302,14 @@ def suspend(company_id):
 def change_plan(company_id, plan_id):
     if not session.get("owner"):
         return redirect("/")
+
     with db() as d:
-        d.execute("UPDATE subscriptions SET plan_id=? WHERE company_id=?", (plan_id, company_id))
+        d.execute(
+            "UPDATE subscriptions SET plan_id=? WHERE company_id=?",
+            (plan_id, company_id)
+        )
         d.commit()
+
     return redirect("/dashboard")
 
 
