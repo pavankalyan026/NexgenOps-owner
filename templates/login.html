@@ -84,6 +84,9 @@ button{
 
     <div class="footer">Restricted Owner Access</div>
 </div>
+{% if error %}
+<p style="color:#ef4444;font-size:13px">{{ error }}</p>
+{% endif %}
 
 </body>
 </html>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>NexgenOps | Owner Management</title>
+<style>
+body{
+    background:#020617;
+    color:#e5e7eb;
+    font-family:Inter,Segoe UI,Arial;
+    padding:30px;
+}
+.card{
+    background:#0b1220;
+    border:1px solid #1e293b;
+    border-radius:16px;
+    padding:25px;
+    max-width:500px;
+}
+input,button{
+    width:100%;
+    padding:12px;
+    margin-top:10px;
+    border-radius:10px;
+    border:none;
+}
+input{
+    background:#020617;
+    color:#e5e7eb;
+    border:1px solid #1e293b;
+}
+button{
+    background:#38bdf8;
+    color:#020617;
+    font-weight:600;
+    cursor:pointer;
+}
+table{
+    width:100%;
+    margin-top:20px;
+}
+td{
+    padding:10px 0;
+    border-bottom:1px solid #1e293b;
+}
+a{color:#38bdf8}
+</style>
+</head>
+
+<body>
+
+<h2>NexgenOps – Owners</h2>
+
+<div class="card">
+<form method="post" action="/owners/add">
+    <input name="username" placeholder="New Owner Username" required>
+    <input name="password" placeholder="Password" required>
+    <button>Add Owner</button>
+</form>
+</div>
+
+<table>
+{% for o in owners %}
+<tr>
+    <td>{{ o[1] }}</td>
+</tr>
+{% endfor %}
+</table>
+
+<br>
+<a href="/dashboard">← Back to Dashboard</a>
+
+</body>
+</html>
