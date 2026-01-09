@@ -13,22 +13,52 @@ body{
 }
 
 /* HEADER */
-.header{
-    padding:22px 30px;
-    border-bottom:1px solid #1e293b;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
+.header {
+  padding: 20px 26px 14px;
+  border-bottom: 1px solid #1e293b;
 }
 
-.logo{
-    font-size:24px;
-    font-weight:700;
-    color:#7dd3fc;
+.brand {
+  display: flex;
+  flex-direction: column;
 }
-.subtitle{
-    font-size:12px;
-    color:#94a3b8;
+
+.logo {
+  font-size: 22px;
+  font-weight: 700;
+  color: #7dd3fc;
+}
+
+.subtitle {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+/* links go BELOW title */
+.header-links {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.header-links a {
+  font-size: 13px;
+  color: #cbd5f5;
+  text-decoration: none;
+}
+
+.header-links a:hover {
+  color: #7dd3fc;
+}
+
+.logout {
+  color: #f87171;
+}
+
+.sep {
+  color: #475569;
 }
 
 /* CONTENT */
@@ -107,25 +137,18 @@ a:hover{text-decoration:underline}
 <body>
 
 <div class="header">
-<div style="margin-bottom:20px;">
-  <a href="/owner/add"
-     style="
-       padding:10px 18px;
-       background:#22c55e;
-       color:#020617;
-       border-radius:10px;
-       font-weight:600;
-       text-decoration:none;
-     ">
-    ➕ Add Owner
-  </a>
-</div>
-    <div>
-        <div class="logo">NexgenOps</div>
-        <div class="subtitle">Owner Control Center</div>
-    </div>
-    <a href="/owners" style="margin-right:15px;color:#38bdf8">Manage Owners</a>
-    <a href="/logout">Logout</a>
+  <div class="brand">
+    <div class="logo">NexgenOps</div>
+    <div class="subtitle">Owner Control Center</div>
+  </div>
+
+  <div class="header-actions">
+    <a href="/owners" class="nav-link">Manage Owners</a>
+    <span class="sep">|</span>
+    <span class="sep">|</span>
+    <span class="sep">|</span>
+    <a href="/logout" class="nav-link logout">Logout</a>
+  </div>
 </div>
 
 <div class="container">

@@ -1,73 +1,68 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>NexgenOps | Owner Management</title>
+<title>NexgenOps | Owners</title>
 <style>
-body{
-    background:#020617;
-    color:#e5e7eb;
-    font-family:Inter,Segoe UI,Arial;
-    padding:30px;
+body {
+  background:#020617;
+  color:#e5e7eb;
+  font-family:Inter,Arial;
+  padding:24px;
 }
-.card{
-    background:#0b1220;
-    border:1px solid #1e293b;
-    border-radius:16px;
-    padding:25px;
-    max-width:500px;
+
+.top {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:20px;
 }
-input,button{
-    width:100%;
-    padding:12px;
-    margin-top:10px;
-    border-radius:10px;
-    border:none;
+
+a {
+  color:#38bdf8;
+  text-decoration:none;
+  font-size:13px;
 }
-input{
-    background:#020617;
-    color:#e5e7eb;
-    border:1px solid #1e293b;
+
+.btn {
+  background:#22c55e;
+  color:#022c22;
+  padding:8px 14px;
+  border-radius:10px;
+  font-size:13px;
 }
-button{
-    background:#38bdf8;
-    color:#020617;
-    font-weight:600;
-    cursor:pointer;
+
+table {
+  width:100%;
+  border-collapse:collapse;
+  background:rgba(255,255,255,0.05);
+  border-radius:12px;
 }
-table{
-    width:100%;
-    margin-top:20px;
+
+th,td {
+  padding:14px;
+  border-bottom:1px solid #1e293b;
 }
-td{
-    padding:10px 0;
-    border-bottom:1px solid #1e293b;
+
+th {
+  color:#94a3b8;
+  font-size:12px;
 }
-a{color:#38bdf8}
 </style>
 </head>
 
 <body>
 
-<h2>NexgenOps – Owners</h2>
-
-<div class="card">
-<form method="post" action="/owners/add">
-    <input name="username" placeholder="New Owner Username" required>
-    <input name="password" placeholder="Password" required>
-    <button>Add Owner</button>
-</form>
+<div class="top">
+  <h2>Owner Management</h2>
+  <a href="/owner/add" class="btn">+ Add Owner</a>
 </div>
 
 <table>
+<tr><th>Username</th></tr>
 {% for o in owners %}
-<tr>
-    <td>{{ o[1] }}</td>
-</tr>
+<tr><td>{{ o[1] }}</td></tr>
 {% endfor %}
 </table>
-
-<br>
-<a href="/dashboard">← Back to Dashboard</a>
 
 </body>
 </html>
