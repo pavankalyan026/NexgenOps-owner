@@ -2,15 +2,22 @@ from flask import Flask, render_template, request, redirect, session
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 from datetime import datetime
+import uuid
 
 app = Flask(__name__)
 app.secret_key = "nexgenops-owner-secret"
+
+POWER_DB_PATH = "power.db"
 
 # =========================================================
 # DATABASE
 # =========================================================
 def db():
     return sqlite3.connect("owner.db", check_same_thread=False)
+
+
+def power_db():
+    return sqlite3.connect(POWER_DB_PATH, check_same_thread=False)
 
 
 # =========================================================
@@ -40,6 +47,7 @@ def init_db():
         cur.execute("""
         CREATE TABLE IF NOT EXISTS companies (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_code TEXT UNIQUE,
             company_name TEXT,
             email TEXT,
             status TEXT,
@@ -91,11 +99,34 @@ def init_db():
         d.commit()
 
 
+def init_power_db():
+    with power_db() as d:
+        d.execute("""
+        CREATE TABLE IF NOT EXISTS pd_companies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_code TEXT UNIQUE,
+            company_name TEXT,
+            status TEXT
+        )
+        """)
+
+        d.execute("""
+        CREATE TABLE IF NOT EXISTS pd_users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_id INTEGER,
+            username TEXT,
+            password TEXT,
+            role TEXT
+        )
+        """)
+        d.commit()
+
+
 # =========================================================
 # INIT ON START
 # =========================================================
 init_db()
-
+init_power_db()
 
 # =========================================================
 # LOGIN
@@ -189,7 +220,7 @@ def dashboard():
 
 
 # =========================================================
-# ADD OWNER
+# OWNERS
 # =========================================================
 @app.route("/owners")
 def owners():
@@ -203,19 +234,17 @@ def owners():
 
     return render_template("owners.html", owners=owners)
 
+
 @app.route("/owner/add", methods=["GET", "POST"])
 def add_owner():
     if not session.get("owner"):
         return redirect("/")
 
     if request.method == "POST":
-        username = request.form["username"]
-        password = generate_password_hash(request.form["password"])
-
         with db() as d:
             d.execute(
                 "INSERT INTO owner (username, password) VALUES (?, ?)",
-                (username, password)
+                (request.form["username"], generate_password_hash(request.form["password"]))
             )
             d.commit()
 
@@ -265,23 +294,51 @@ def company_register_submit():
 
 
 # =========================================================
-# APPROVE / SUSPEND / PLAN
+# APPROVE / SUSPEND / PLAN (POWER SYNC)
 # =========================================================
 @app.route("/approve/<int:company_id>")
 def approve(company_id):
     if not session.get("owner"):
         return redirect("/")
 
+    company_code = "NG-" + uuid.uuid4().hex[:8].upper()
+
     with db() as d:
         cur = d.cursor()
-        cur.execute("UPDATE companies SET status='ACTIVE' WHERE id=?", (company_id,))
-        cur.execute("SELECT 1 FROM subscriptions WHERE company_id=?", (company_id,))
-        if not cur.fetchone():
-            cur.execute("""
-                INSERT INTO subscriptions (company_id, plan_id, status, start_date)
-                VALUES (?, 1, 'ACTIVE', ?)
-            """, (company_id, datetime.now().strftime("%Y-%m-%d")))
+
+        cur.execute("""
+            UPDATE companies
+            SET status='ACTIVE', company_code=?
+            WHERE id=?
+        """, (company_code, company_id))
+
+        cur.execute("SELECT company_name, email FROM companies WHERE id=?", (company_id,))
+        company_name, email = cur.fetchone()
+
+        cur.execute("""
+            INSERT OR IGNORE INTO subscriptions (company_id, plan_id, status, start_date)
+            VALUES (?, 1, 'ACTIVE', ?)
+        """, (company_id, datetime.now().strftime("%Y-%m-%d")))
+
         d.commit()
+
+    with power_db() as pd:
+        cur = pd.cursor()
+
+        cur.execute("""
+            INSERT OR IGNORE INTO pd_companies (company_code, company_name, status)
+            VALUES (?, ?, 'ACTIVE')
+        """, (company_code, company_name))
+
+        cur.execute("SELECT id FROM pd_companies WHERE company_code=?", (company_code,))
+        pd_company_id = cur.fetchone()[0]
+
+        cur.execute("""
+            INSERT OR IGNORE INTO pd_users (company_id, username, password, role)
+            VALUES (?, ?, ?, 'ADMIN')
+        """, (pd_company_id, email, generate_password_hash("admin123")))
+
+        pd.commit()
 
     return redirect("/dashboard")
 
@@ -292,8 +349,16 @@ def suspend(company_id):
         return redirect("/")
 
     with db() as d:
-        d.execute("UPDATE companies SET status='SUSPENDED' WHERE id=?", (company_id,))
+        cur = d.cursor()
+        cur.execute("SELECT company_code FROM companies WHERE id=?", (company_id,))
+        code = cur.fetchone()[0]
+
+        cur.execute("UPDATE companies SET status='SUSPENDED' WHERE id=?", (company_id,))
         d.commit()
+
+    with power_db() as pd:
+        pd.execute("UPDATE pd_companies SET status='SUSPENDED' WHERE company_code=?", (code,))
+        pd.commit()
 
     return redirect("/dashboard")
 
@@ -304,10 +369,7 @@ def change_plan(company_id, plan_id):
         return redirect("/")
 
     with db() as d:
-        d.execute(
-            "UPDATE subscriptions SET plan_id=? WHERE company_id=?",
-            (plan_id, company_id)
-        )
+        d.execute("UPDATE subscriptions SET plan_id=? WHERE company_id=?", (plan_id, company_id))
         d.commit()
 
     return redirect("/dashboard")
