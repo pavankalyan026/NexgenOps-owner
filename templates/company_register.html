@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>NexgenOps | Company Registration</title>
+
+<style>
+body{
+    margin:0;
+    min-height:100vh;
+    background:linear-gradient(135deg,#020617,#020b2e);
+    font-family:Inter,Segoe UI,Arial;
+    color:#e5e7eb;
+    display:flex;
+    justify-content:center;
+    padding:40px 15px;
+}
+
+.card{
+    width:100%;
+    max-width:720px;
+    background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:22px;
+    padding:35px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.6);
+}
+
+.logo{
+    font-size:28px;
+    font-weight:700;
+    color:#7dd3fc;
+    text-align:center;
+}
+.subtitle{
+    text-align:center;
+    font-size:13px;
+    color:#94a3b8;
+    margin-bottom:30px;
+}
+
+.grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:18px;
+}
+
+input,select{
+    width:100%;
+    padding:14px;
+    border-radius:14px;
+    border:1px solid #1e293b;
+    background:#020617;
+    color:#e5e7eb;
+    font-size:14px;
+}
+
+button{
+    margin-top:25px;
+    width:100%;
+    padding:15px;
+    border-radius:16px;
+    border:none;
+    background:linear-gradient(135deg,#38bdf8,#22d3ee);
+    color:#020617;
+    font-weight:600;
+    font-size:15px;
+    cursor:pointer;
+}
+button:hover{opacity:.9}
+
+.section{
+    margin:28px 0 12px;
+    font-size:14px;
+    color:#94a3b8;
+}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+    <div class="logo">NexgenOps</div>
+    <div class="subtitle">Enterprise Platform Registration</div>
+
+    <form method="post" action="/company/register/submit">
+
+        <div class="section">Company Details</div>
+        <div class="grid">
+            <input name="company_name" placeholder="Company Legal Name" required>
+            <select name="industry" required>
+                <option value="">Industry</option>
+                <option>IT / Software</option>
+                <option>Manufacturing</option>
+                <option>Data Center</option>
+                <option>Hospital</option>
+                <option>Infrastructure</option>
+            </select>
+            <select name="company_size" required>
+                <option value="">Company Size</option>
+                <option>1–50</option>
+                <option>50–200</option>
+                <option>200+</option>
+            </select>
+        </div>
+
+        <div class="section">Primary Admin</div>
+        <div class="grid">
+            <input name="admin_name" placeholder="Admin Full Name" required>
+            <input name="email" placeholder="Admin Email" required>
+            <input name="admin_mobile" placeholder="Admin Mobile Number" required>
+        </div>
+
+        <div class="section">Location</div>
+        <div class="grid">
+            <input name="country" placeholder="Country" required>
+            <input name="state" placeholder="State" required>
+            <input name="city" placeholder="City" required>
+            <select name="timezone" required>
+                <option value="">Timezone</option>
+                <option>Asia/Kolkata</option>
+                <option>UTC</option>
+            </select>
+        </div>
+
+        <div class="section">Usage Expectation</div>
+        <div class="grid">
+            <select name="requested_plan">
+                <option>Free</option>
+                <option>Professional</option>
+                <option>Enterprise</option>
+            </select>
+            <input name="expected_users" type="number" placeholder="Expected Users">
+            <input name="expected_meters" type="number" placeholder="Expected Meters">
+        </div>
+
+        <button type="submit">Request Access</button>
+    </form>
+</div>
+
+</body>
+</html>

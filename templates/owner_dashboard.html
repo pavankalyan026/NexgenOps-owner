@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>NexgenOps | Owner Console</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+    margin:0;
+    background:linear-gradient(135deg,#020617,#020b2e);
+    font-family:Inter,Segoe UI,Arial;
+    color:#e5e7eb;
+}
+
+/* HEADER */
+.header{
+    padding:22px 30px;
+    border-bottom:1px solid #1e293b;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.logo{
+    font-size:24px;
+    font-weight:700;
+    color:#7dd3fc;
+}
+.subtitle{
+    font-size:12px;
+    color:#94a3b8;
+}
+
+/* CONTENT */
+.container{
+    padding:30px;
+}
+
+/* KPI GRID */
+.kpis{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:18px;
+    margin-bottom:35px;
+}
+
+.kpi{
+    background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:18px;
+    padding:22px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.4);
+}
+
+.kpi span{
+    font-size:13px;
+    color:#94a3b8;
+}
+.kpi h2{
+    margin:8px 0 0;
+    font-size:30px;
+}
+
+/* SECTION */
+.section-title{
+    margin:40px 0 15px;
+    font-size:18px;
+}
+
+/* PANEL */
+.panel{
+    background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:20px;
+    padding:22px;
+}
+
+/* TABLE */
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:15px;
+}
+
+th{
+    text-align:left;
+    font-size:13px;
+    color:#94a3b8;
+    padding-bottom:12px;
+}
+
+td{
+    padding:14px 0;
+    border-top:1px solid #1e293b;
+    font-size:14px;
+}
+
+a{
+    color:#38bdf8;
+    text-decoration:none;
+    font-size:13px;
+}
+a:hover{text-decoration:underline}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+    <div>
+        <div class="logo">NexgenOps</div>
+        <div class="subtitle">Owner Control Center</div>
+    </div>
+    <a href="/logout">Logout</a>
+</div>
+
+<div class="container">
+
+<p style="color:#94a3b8">
+{{ greeting }} 👋  
+Here’s a real-time overview of NexgenOps
+</p>
+
+<!-- PLATFORM KPIs -->
+<div class="kpis">
+    <div class="kpi"><span>Total Companies</span><h2>{{ total }}</h2></div>
+    <div class="kpi"><span>Active</span><h2 style="color:#22c55e">{{ active }}</h2></div>
+    <div class="kpi"><span>Pending</span><h2 style="color:#facc15">{{ pending }}</h2></div>
+    <div class="kpi"><span>Suspended</span><h2 style="color:#ef4444">{{ suspended }}</h2></div>
+</div>
+
+<!-- REVENUE KPIs -->
+<h2 class="section-title">Revenue Overview</h2>
+
+<div class="kpis">
+    <div class="kpi"><span>MRR</span><h2>₹{{ mrr }}</h2></div>
+    <div class="kpi"><span>Active Subscriptions</span><h2>{{ active_subs }}</h2></div>
+    <div class="kpi"><span>Trials</span><h2>{{ trials }}</h2></div>
+    <div class="kpi"><span>Churned</span><h2>{{ churned }}</h2></div>
+</div>
+
+<!-- SUBSCRIPTION MANAGEMENT -->
+<h2 class="section-title">Subscription Management</h2>
+<div class="panel">
+<table>
+<tr>
+    <th>Company</th>
+    <th>Plan</th>
+    <th>Price</th>
+    <th>Change Plan</th>
+</tr>
+
+{% for s in subscriptions %}
+<tr>
+    <td>{{ s[1] }}</td>
+    <td>{{ s[3] }}</td>
+    <td>₹{{ s[4] }}</td>
+    <td>
+        {% for p in plans %}
+            <a href="/change-plan/{{ s[0] }}/{{ p[0] }}">{{ p[1] }}</a>
+            {% if not loop.last %} | {% endif %}
+        {% endfor %}
+    </td>
+</tr>
+{% endfor %}
+</table>
+</div>
+
+<!-- COMPANY MANAGEMENT -->
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:40px;">
+    <h3>Company Management</h3>
+
+    <a href="/company/register"
+       style="
+           background:#38bdf8;
+           color:#020617;
+           padding:10px 16px;
+           border-radius:10px;
+           font-size:14px;
+           font-weight:600;
+           text-decoration:none;
+       ">
+        ➕ Add Company
+    </a>
+</div>>
+
+<div class="panel">
+{% if companies|length == 0 %}
+    <p>No companies registered yet.</p>
+    <a href="/company/register">➕ Register Test Company</a>
+{% else %}
+<table>
+<tr>
+    <th>Company</th>
+    <th>Email</th>
+    <th>Status</th>
+    <th>Action</th>
+</tr>
+
+{% for c in companies %}
+<tr>
+    <td>{{ c[1] }}</td>
+    <td>{{ c[2] }}</td>
+    <td>{{ c[3] }}</td>
+    <td>
+        {% if c[3] == 'PENDING' %}
+            <a href="/approve/{{ c[0] }}">Approve</a>
+        {% elif c[3] == 'ACTIVE' %}
+            <a href="/suspend/{{ c[0] }}">Suspend</a>
+        {% else %}
+            <a href="/approve/{{ c[0] }}">Activate</a>
+        {% endif %}
+    </td>
+</tr>
+{% endfor %}
+</table>
+{% endif %}
+</div>
+
+</div>
+</body>
+</html>
