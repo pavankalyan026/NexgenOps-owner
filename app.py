@@ -1,4 +1,8 @@
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from flask import Flask, render_template, request, redirect, session
+from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 from datetime import datetime
 
@@ -13,7 +17,44 @@ def db():
 
 
 # =========================================================
-# INIT PLANS
+# INIT CORE TABLES
+# =========================================================
+def init_db():
+    with db() as d:
+        cur = d.cursor()
+
+        # Owner table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS owner (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE,
+                password TEXT
+            )
+        """)
+
+        # Insert owner with hashed password
+        hashed = generate_password_hash("owner123")
+        cur.execute("""
+            INSERT OR IGNORE INTO owner (id, username, password)
+            VALUES (1, 'owner', ?)
+        """, (hashed,))
+
+        # Companies table (base)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS companies (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_name TEXT,
+                email TEXT,
+                status TEXT,
+                created_at TEXT
+            )
+        """)
+
+        d.commit()
+
+
+# =========================================================
+# UPGRADE COMPANIES TABLE (SAFE MIGRATION)
 # =========================================================
 def upgrade_companies_table():
     with db() as d:
@@ -38,6 +79,11 @@ def upgrade_companies_table():
         add("expected_meters", "INTEGER")
 
         d.commit()
+
+
+# =========================================================
+# INIT PLANS
+# =========================================================
 def init_plans():
     with db() as d:
         d.execute("""
@@ -77,44 +123,45 @@ def init_subscriptions():
 
 
 # =========================================================
-# INIT CORE TABLES
+# INITIALIZE DATABASE (ORDER MATTERS)
 # =========================================================
-def init_db():
-    with db() as d:
-        d.execute("""
-            CREATE TABLE IF NOT EXISTS owner (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE,
-                password TEXT
-            )
-        """)
-        d.execute("""
-            INSERT OR IGNORE INTO owner (id, username, password)
-            VALUES (1, 'owner', 'owner123')
-        """)
-        d.execute("""
-            CREATE TABLE IF NOT EXISTS companies (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                company_name TEXT,
-                email TEXT,
-                status TEXT,
-                created_at TEXT
-            )
-        """)
-        d.commit()
-
-
-# =========================================================
-# INITIALIZE DATABASE
-# =========================================================
+init_db()
+upgrade_companies_table()
 init_plans()
 init_subscriptions()
-init_db()
 
 
 # =========================================================
 # LOGIN
 # =========================================================
+def send_owner_invite(to_email, username, password):
+    msg = MIMEMultipart()
+    msg["From"] = SMTP_EMAIL
+    msg["To"] = to_email
+    msg["Subject"] = "You’re invited as Owner – NexgenOps"
+
+    body = f"""
+Hello,
+
+You have been added as an Owner on NexgenOps.
+
+Login details:
+URL: {OWNER_LOGIN_URL}
+Username: {username}
+Temporary Password: {password}
+
+For security, please change your password after login.
+
+Regards,
+NexgenOps Team
+"""
+    msg.attach(MIMEText(body, "plain"))
+
+    server = smtplib.SMTP("smtp.gmail.com", 587)
+    server.starttls()
+    server.login(SMTP_EMAIL, SMTP_PASSWORD)
+    server.send_message(msg)
+    server.quit()
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -123,15 +170,14 @@ def login():
 
         with db() as d:
             cur = d.cursor()
-            cur.execute(
-                "SELECT * FROM owner WHERE username=? AND password=?",
-                (username, password)
-            )
-            user = cur.fetchone()
+            cur.execute("SELECT password FROM owner WHERE username=?", (username,))
+            row = cur.fetchone()
 
-        if user:
+        if row and check_password_hash(row[0], password):
             session["owner"] = True
             return redirect("/dashboard")
+
+        return render_template("login.html", error="Invalid credentials")
 
     return render_template("login.html")
 
@@ -147,7 +193,6 @@ def dashboard():
     with db() as d:
         cur = d.cursor()
 
-        # ---- KPIs ----
         cur.execute("SELECT COUNT(*) FROM companies")
         total = cur.fetchone()[0]
 
@@ -160,30 +205,20 @@ def dashboard():
         cur.execute("SELECT COUNT(*) FROM companies WHERE status='SUSPENDED'")
         suspended = cur.fetchone()[0]
 
-        # ---- Companies ----
         cur.execute("SELECT * FROM companies")
         companies = cur.fetchall()
 
-        # ---- Subscriptions ----
         cur.execute("""
-            SELECT 
-                c.id,
-                c.company_name,
-                p.id,
-                p.name,
-                p.price,
-                s.status
+            SELECT c.id, c.company_name, p.id, p.name, p.price, s.status
             FROM subscriptions s
             JOIN companies c ON s.company_id = c.id
             JOIN plans p ON s.plan_id = p.id
         """)
         subscriptions = cur.fetchall()
 
-        # ---- Plans ----
         cur.execute("SELECT id, name, price FROM plans")
         plans = cur.fetchall()
 
-        # ---- Revenue ----
         cur.execute("""
             SELECT IFNULL(SUM(p.price),0)
             FROM subscriptions s
@@ -201,14 +236,8 @@ def dashboard():
         cur.execute("SELECT COUNT(*) FROM subscriptions WHERE status='CANCELLED'")
         churned = cur.fetchone()[0]
 
-    # ---- Greeting Logic ----
     hour = datetime.now().hour
-    if hour < 12:
-        greeting = "Good Morning"
-    elif hour < 17:
-        greeting = "Good Afternoon"
-    else:
-        greeting = "Good Evening"
+    greeting = "Good Morning" if hour < 12 else "Good Afternoon" if hour < 17 else "Good Evening"
 
     return render_template(
         "owner_dashboard.html",
@@ -226,76 +255,40 @@ def dashboard():
         churned=churned
     )
 
-
-# =========================================================
-# APPROVE COMPANY
-# =========================================================
-@app.route("/approve/<int:company_id>")
-def approve(company_id):
+@app.route("/owners")
+def owners():
     if not session.get("owner"):
         return redirect("/")
 
     with db() as d:
         cur = d.cursor()
+        cur.execute("SELECT id, username FROM owner")
+        owners = cur.fetchall()
 
-        cur.execute(
-            "UPDATE companies SET status='ACTIVE' WHERE id=?",
-            (company_id,)
-        )
-
-        cur.execute(
-            "SELECT * FROM subscriptions WHERE company_id=?",
-            (company_id,)
-        )
-        exists = cur.fetchone()
-
-        if not exists:
-            cur.execute("""
-                INSERT INTO subscriptions (company_id, plan_id, status, start_date)
-                VALUES (?, 1, 'ACTIVE', ?)
-            """, (company_id, datetime.now().strftime("%Y-%m-%d")))
-
-        d.commit()
-
-    return redirect("/dashboard")
-
-
-# =========================================================
-# SUSPEND COMPANY
-# =========================================================
-@app.route("/suspend/<int:company_id>")
-def suspend(company_id):
+    return render_template("owners.html", owners=owners)
+    
+@app.route("/owners/add", methods=["POST"])
+def add_owner():
     if not session.get("owner"):
         return redirect("/")
 
-    with db() as d:
-        d.execute(
-            "UPDATE companies SET status='SUSPENDED' WHERE id=?",
-            (company_id,)
-        )
-        d.commit()
+    username = request.form["username"]
+    password = request.form["password"]
 
-    return redirect("/dashboard")
-
-
-# =========================================================
-# CHANGE PLAN
-# =========================================================
-@app.route("/change-plan/<int:company_id>/<int:plan_id>")
-def change_plan(company_id, plan_id):
-    if not session.get("owner"):
-        return redirect("/")
+    hashed = generate_password_hash(password)
 
     with db() as d:
-        d.execute("""
-            UPDATE subscriptions
-            SET plan_id=?
-            WHERE company_id=?
-        """, (plan_id, company_id))
+        cur = d.cursor()
+        cur.execute("""
+            INSERT INTO owner (username, password)
+            VALUES (?, ?)
+        """, (username, hashed))
         d.commit()
 
-    return redirect("/dashboard")
+    # 📧 Send email invite
+    send_owner_invite(username, username, password)
 
+    return redirect("/owners") 
 
 # =========================================================
 # COMPANY REGISTRATION
@@ -334,6 +327,48 @@ def company_register_submit():
         ))
         d.commit()
 
+    return redirect("/dashboard")
+
+
+# =========================================================
+# APPROVE / SUSPEND / PLAN
+# =========================================================
+@app.route("/approve/<int:company_id>")
+def approve(company_id):
+    if not session.get("owner"):
+        return redirect("/")
+
+    with db() as d:
+        cur = d.cursor()
+        cur.execute("UPDATE companies SET status='ACTIVE' WHERE id=?", (company_id,))
+        cur.execute("SELECT 1 FROM subscriptions WHERE company_id=?", (company_id,))
+        if not cur.fetchone():
+            cur.execute("""
+                INSERT INTO subscriptions (company_id, plan_id, status, start_date)
+                VALUES (?, 1, 'ACTIVE', ?)
+            """, (company_id, datetime.now().strftime("%Y-%m-%d")))
+        d.commit()
+
+    return redirect("/dashboard")
+
+
+@app.route("/suspend/<int:company_id>")
+def suspend(company_id):
+    if not session.get("owner"):
+        return redirect("/")
+    with db() as d:
+        d.execute("UPDATE companies SET status='SUSPENDED' WHERE id=?", (company_id,))
+        d.commit()
+    return redirect("/dashboard")
+
+
+@app.route("/change-plan/<int:company_id>/<int:plan_id>")
+def change_plan(company_id, plan_id):
+    if not session.get("owner"):
+        return redirect("/")
+    with db() as d:
+        d.execute("UPDATE subscriptions SET plan_id=? WHERE company_id=?", (plan_id, company_id))
+        d.commit()
     return redirect("/dashboard")
 
 
